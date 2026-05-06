@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>勉強内容ルーレット</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif; }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes bounceIn {
+      0%   { opacity: 0; transform: scale(0.72); }
+      55%  { transform: scale(1.08); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    @keyframes shimmer {
+      from { background-position: -200% center; }
+      to   { background-position:  200% center; }
+    }
+
+    .anim-fade-up  { animation: fadeInUp 0.4s ease-out both; }
+    .anim-slide-up { animation: slideUp  0.12s ease-out both; }
+    .anim-bounce-in{ animation: bounceIn 0.45s cubic-bezier(0.34,1.56,0.64,1) both; }
+
+    .shimmer-text {
+      background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 35%, #ec4899 65%, #3b82f6 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: shimmer 0.45s linear infinite;
+    }
+
+    .tab-btn  { transition: all 0.2s cubic-bezier(0.4,0,0.2,1); }
+    .spin-btn { transition: transform 0.15s, box-shadow 0.15s; }
+    .spin-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,0.18); }
+    .spin-btn:active:not(:disabled){ transform: scale(0.96); }
+    .spin-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .result-card { transition: border-color 0.3s; }
+  </style>
+</head>
+
+<body class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+
+  <!-- ───────────────────────── MAIN ───────────────────────── -->
+  <div class="max-w-md mx-auto px-4 py-8 pb-20">
+
+    <!-- Header -->
+    <header class="text-center mb-8 anim-fade-up">
+      <div class="text-5xl mb-3">📚</div>
+      <h1 class="text-2xl font-black text-slate-800 tracking-tight">勉強内容ルーレット</h1>
+      <p class="text-slate-500 text-sm mt-1">今日やるべき内容をランダムに決めよう！</p>
+    </header>
+
+    <!-- Subject Tabs -->
+    <div class="flex gap-2 mb-5 p-1.5 bg-white rounded-2xl shadow-sm border border-slate-100 anim-fade-up"
+         style="animation-delay:.05s" id="subjectTabs">
+      <button class="tab-btn flex-1 py-2.5 rounded-xl font-bold text-sm"
+              data-subject="英語" onclick="selectSubject('英語')">🇬🇧 英語</button>
+      <button class="tab-btn flex-1 py-2.5 rounded-xl font-bold text-sm"
+              data-subject="数学" onclick="selectSubject('数学')">📐 数学</button>
+      <button class="tab-btn flex-1 py-2.5 rounded-xl font-bold text-sm"
+              data-subject="国語" onclick="selectSubject('国語')">📖 国語</button>
+    </div>
+
+    <!-- Result Card -->
+    <div id="resultCard"
+         class="result-card bg-white rounded-2xl shadow-sm border-2 border-slate-100 p-6 mb-4 flex flex-col items-center justify-center text-center anim-fade-up"
+         style="min-height:13rem; animation-delay:.1s">
+
+      <!-- State: placeholder -->
+      <div id="statePlaceholder">
+        <div class="text-4xl mb-3">🎲</div>
+        <p class="text-slate-400 text-sm font-medium leading-relaxed">
+          科目を選んで<br>ルーレットを回してみよう！
+        </p>
+      </div>
+
+      <!-- State: spinning -->
+      <div id="stateSpinning" class="hidden">
+        <p class="text-xs font-semibold text-slate-400 tracking-widest mb-4 uppercase">ルーレット中…</p>
+        <p id="spinBook"  class="text-2xl font-black shimmer-text leading-snug">---</p>
+        <p id="spinGenre" class="text-xs text-slate-400 mt-2 font-medium"></p>
+      </div>
+
+      <!-- State: result -->
+      <div id="stateResult" class="hidden w-full">
+        <p class="text-xs font-semibold text-slate-400 tracking-widest mb-3 uppercase">今日やること！</p>
+        <div id="genreBadge" class="inline-block px-3 py-1 rounded-full text-xs font-bold mb-3"></div>
+        <p id="resultBook"    class="text-2xl font-black text-slate-800 leading-snug"></p>
+        <p id="resultSubject" class="text-xs text-slate-400 mt-2 font-semibold tracking-wide"></p>
+        <div id="adviceBox" class="mt-4 px-4 py-3 rounded-xl text-left">
+          <p class="text-xs font-black mb-0.5">💡 ワンポイントアドバイス</p>
+          <p id="resultAdvice" class="text-xs font-medium leading-relaxed"></p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Spin Button -->
+    <button id="spinBtn"
+            class="spin-btn w-full py-4 rounded-2xl text-white font-black text-lg shadow-lg mb-7 bg-slate-400 anim-fade-up"
+            style="animation-delay:.15s"
+            onclick="spin()">
+      🎲 ルーレットを回す
+    </button>
+
+    <!-- History -->
+    <div id="historySection" class="hidden">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="h-px flex-1 bg-slate-200"></div>
+        <p class="text-xs font-semibold text-slate-400 tracking-widest uppercase shrink-0">最近の結果</p>
+        <div class="h-px flex-1 bg-slate-200"></div>
+      </div>
+      <div id="historyList" class="space-y-2"></div>
+    </div>
+
+  </div><!-- /main -->
+
+  <!-- Tailwind safelist (動的クラスを確実に生成させる hidden div) -->
+  <div class="hidden
+    bg-blue-500    border-blue-200    bg-blue-100    text-blue-700    text-blue-600    bg-blue-50    border-blue-100
+    bg-emerald-500 border-emerald-200 bg-emerald-100 text-emerald-700 text-emerald-600 bg-emerald-50 border-emerald-100
+    bg-rose-500    border-rose-200    bg-rose-100    text-rose-700    text-rose-600    bg-rose-50    border-rose-100
+  "></div>
+  <!-- advice color safelist -->
+  <div class="hidden bg-blue-50 text-blue-700 bg-emerald-50 text-emerald-700 bg-rose-50 text-rose-700"></div>
+
+  <!-- ───────────────────────── SCRIPT ───────────────────────── -->
+  <script>
+  // ── Data ──────────────────────────────────────────────────────
+  const DATA = {
+    英語: [
+      { genre: "単語・熟語", book: "システム英単語",       advice: "夜寝る前の暗記がゴールデンタイム！翌朝に確認すると定着率がぐっと上がる◎" },
+      { genre: "単語・熟語", book: "ターゲット1900",       advice: "例文ごと覚えると試験中に文脈で引き出しやすくなるよ！" },
+      { genre: "単語・熟語", book: "速読英単語",           advice: "長文を読みながら単語も覚えられる一石二鳥の参考書。音読も取り入れよう！" },
+      { genre: "英文法",     book: "Next Stage",           advice: "答えを覚えるだけはNG。「なぜその文法か」を自分の言葉で説明できてこそ本物！" },
+      { genre: "英文法",     book: "英文法ポラリス",       advice: "レベル別になってるから自分に合った1冊を完璧に仕上げることが近道！" },
+      { genre: "英文解釈",   book: "英文解釈の技術",       advice: "SVOC構造の把握が英語力の土台。急がず丁寧に1文1文と向き合おう" },
+      { genre: "英文解釈",   book: "読解のための英文法",   advice: "文法を「読むため」に使う視点が身につく。精読力が一気に上がる1冊！" },
+      { genre: "長文読解",   book: "やっておきたい英語長文", advice: "時間を計って本番と同じ条件で解くのが最も効果的。解きっぱなしは厳禁！" },
+      { genre: "長文読解",   book: "The Rules",             advice: "「根拠を持って選ぶ」訓練が大事。フィーリングで解かないようにしよう！" },
+    ],
+    数学: [
+      { genre: "網羅系演習", book: "青チャート",           advice: "まず例題だけでOK！解法パターンを体に染み込ませることを最優先に" },
+      { genre: "網羅系演習", book: "黄チャート",           advice: "青より丁寧な解説で基礎固めに最適。焦らず黄を完璧にする方が伸びる！" },
+      { genre: "網羅系演習", book: "Focus Gold",           advice: "マスター編の例題だけを完璧にすれば十分。欲張らず1周仕上げることが先決！" },
+      { genre: "分野別・基礎", book: "基礎問題精講",       advice: "薄いけど内容は濃い！1問1問を完全に理解してから次に進む姿勢が大切" },
+      { genre: "定石理解",   book: "一対一対応の演習",     advice: "解法の「型」を学ぶ本。解いた後の解説精読に全力を注ごう！" },
+      { genre: "実戦演習",   book: "重要事項完全習得編",   advice: "入試標準レベルの壁は厚い。諦めず何周もすることが突破口になる！" },
+      { genre: "実戦演習",   book: "良問の風",             advice: "「なぜこの解法を選ぶか」を言語化する習慣をつけながら解こう" },
+    ],
+    国語: [
+      { genre: "現代文", book: "ことばはちからダ！",             advice: "語彙は現代文の土台。毎日少しずつ読み込んで、じわじわ積み上げよう◎" },
+      { genre: "現代文", book: "ゼロから読み解く最強の現代文",   advice: "筆者の主張を「対比」で整理するクセをつけると読解力が一気に上がる！" },
+      { genre: "現代文", book: "アクセス",                       advice: "入門から実践まで段階的に力がつく構成。解説をしっかり熟読しよう！" },
+      { genre: "古文",   book: "古文単語315",                     advice: "英単語と同じく、夜寝る前の反復暗記が最も定着しやすいよ！" },
+      { genre: "古文",   book: "ステップアップノート",             advice: "文法は覚えるより「使って慣れる」こと。音読を積極的に取り入れよう" },
+      { genre: "古文",   book: "古文上達",                       advice: "品詞分解を面倒くさがらずやることが上達への一番の近道！" },
+      { genre: "漢文",   book: "漢文早覚え速答法",               advice: "覚える句法の数は少ない！集中してやれば1週間で基礎が完成するよ" },
+      { genre: "漢文",   book: "漢文道場",                       advice: "書き下し文を声に出して読むと、理解が一気に深まるのでぜひ音読を！" },
+    ],
+  };
+
+  // ── Colors ────────────────────────────────────────────────────
+  const COLORS = {
+    英語: {
+      tabActive:  'bg-blue-500 text-white shadow-md',
+      btnBg:      'bg-blue-500',
+      cardBorder: 'border-blue-200',
+      badge:      'bg-blue-100 text-blue-700',
+      adviceBg:   'bg-blue-50',
+      adviceText: 'text-blue-700',
+      histBorder: 'border-blue-100',
+      histTag:    'bg-blue-500 text-white',
+      histGenre:  'text-blue-600',
+    },
+    数学: {
+      tabActive:  'bg-emerald-500 text-white shadow-md',
+      btnBg:      'bg-emerald-500',
+      cardBorder: 'border-emerald-200',
+      badge:      'bg-emerald-100 text-emerald-700',
+      adviceBg:   'bg-emerald-50',
+      adviceText: 'text-emerald-700',
+      histBorder: 'border-emerald-100',
+      histTag:    'bg-emerald-500 text-white',
+      histGenre:  'text-emerald-600',
+    },
+    国語: {
+      tabActive:  'bg-rose-500 text-white shadow-md',
+      btnBg:      'bg-rose-500',
+      cardBorder: 'border-rose-200',
+      badge:      'bg-rose-100 text-rose-700',
+      adviceBg:   'bg-rose-50',
+      adviceText: 'text-rose-700',
+      histBorder: 'border-rose-100',
+      histTag:    'bg-rose-500 text-white',
+      histGenre:  'text-rose-600',
+    },
+  };
+
+  // ── State ────────────────────────────────────────────────────
+  let currentSubject = null;
+  let isSpinning     = false;
+  let history        = [];
+
+  // ── selectSubject ─────────────────────────────────────────────
+  function selectSubject(subject) {
+    if (isSpinning) return;
+    currentSubject = subject;
+    const c = COLORS[subject];
+
+    // Tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.className = `tab-btn flex-1 py-2.5 rounded-xl font-bold text-sm ${
+        btn.dataset.subject === subject
+          ? COLORS[btn.dataset.subject].tabActive
+          : 'text-slate-500 hover:bg-slate-50'
+      }`;
+    });
+
+    // Card border
+    const card = document.getElementById('resultCard');
+    card.className = card.className
+      .replace(/border-\S+/g, '')
+      .replace(/\s+/g, ' ')
+      .trim() + ' ' + c.cardBorder;
+
+    // Spin button
+    const btn = document.getElementById('spinBtn');
+    btn.className = `spin-btn w-full py-4 rounded-2xl text-white font-black text-lg shadow-lg mb-7 anim-fade-up ${c.btnBg}`;
+    btn.style.animationDelay = '';
+
+    // Reset to placeholder only if result isn't showing
+    if (!document.getElementById('stateResult').classList.contains('hidden')) return;
+    showState('placeholder');
+  }
+
+  // ── showState ─────────────────────────────────────────────────
+  function showState(state) {
+    document.getElementById('statePlaceholder').classList.toggle('hidden', state !== 'placeholder');
+    document.getElementById('stateSpinning').classList.toggle('hidden',   state !== 'spinning');
+    document.getElementById('stateResult').classList.toggle('hidden',     state !== 'result');
+  }
+
+  // ── spin ──────────────────────────────────────────────────────
+  function spin() {
+    if (!currentSubject || isSpinning) return;
+    isSpinning = true;
+    document.getElementById('spinBtn').disabled = true;
+
+    const items     = DATA[currentSubject];
+    const finalItem = items[Math.floor(Math.random() * items.length)];
+
+    showState('spinning');
+
+    const spinBook  = document.getElementById('spinBook');
+    const spinGenre = document.getElementById('spinGenre');
+
+    // Timing schedule: fast → gradually slower (ms between frames)
+    const schedule = [
+      50, 55, 55, 60, 60, 65, 68, 72, 78,
+      95, 115, 145, 185, 240, 320, 430,
+    ];
+
+    let step = 0;
+
+    function tick() {
+      const item = items[Math.floor(Math.random() * items.length)];
+
+      // Slide-up animation on each tick
+      spinBook.classList.remove('anim-slide-up');
+      void spinBook.offsetWidth;           // force reflow
+      spinBook.textContent = item.book;
+      spinBook.classList.add('anim-slide-up');
+      spinGenre.textContent = item.genre;
+
+      step++;
+      if (step < schedule.length) {
+        setTimeout(tick, schedule[step]);
+      } else {
+        setTimeout(() => showResult(finalItem), 320);
+      }
+    }
+
+    tick();
+  }
+
+  // ── showResult ────────────────────────────────────────────────
+  function showResult(item) {
+    const c = COLORS[currentSubject];
+
+    showState('result');
+
+    const el = document.getElementById('stateResult');
+    el.classList.remove('anim-bounce-in');
+    void el.offsetWidth;
+    el.classList.add('anim-bounce-in');
+
+    document.getElementById('genreBadge').className =
+      `inline-block px-3 py-1 rounded-full text-xs font-bold mb-3 ${c.badge}`;
+    document.getElementById('genreBadge').textContent   = item.genre;
+    document.getElementById('resultBook').textContent    = item.book;
+    document.getElementById('resultSubject').textContent = `— ${currentSubject} —`;
+    document.getElementById('adviceBox').className =
+      `mt-4 px-4 py-3 rounded-xl text-left ${c.adviceBg} ${c.adviceText}`;
+    document.getElementById('resultAdvice').textContent  = item.advice;
+
+    addToHistory(item);
+    isSpinning = false;
+    document.getElementById('spinBtn').disabled = false;
+  }
+
+  // ── history ───────────────────────────────────────────────────
+  function addToHistory(item) {
+    history.unshift({ subject: currentSubject, ...item });
+    if (history.length > 3) history.pop();
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const section = document.getElementById('historySection');
+    const list    = document.getElementById('historyList');
+
+    if (history.length === 0) { section.classList.add('hidden'); return; }
+    section.classList.remove('hidden');
+
+    list.innerHTML = history.map((h, i) => {
+      const c = COLORS[h.subject];
+      return `
+        <div class="flex items-center gap-2 bg-white rounded-xl px-4 py-3 border ${c.histBorder} anim-fade-up"
+             style="animation-delay:${i * 0.06}s">
+          <span class="shrink-0 px-2 py-0.5 rounded-lg text-xs font-black ${c.histTag}">${h.subject}</span>
+          <span class="text-xs font-semibold ${c.histGenre} shrink-0">${h.genre}</span>
+          <span class="text-sm font-bold text-slate-700 ml-auto text-right leading-tight">${h.book}</span>
+        </div>`;
+    }).join('');
+  }
+
+  // ── Init ──────────────────────────────────────────────────────
+  selectSubject('英語');
+  </script>
+</body>
+</html>
